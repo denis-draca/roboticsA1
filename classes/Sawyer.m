@@ -1,6 +1,86 @@
 classdef Sawyer
-    %UNTITLED Summary of this class goes here
-    %   Detailed explanation goes here
+    %Sawyer Generates physical model of the sawyer and allows for
+    %manufacturing control
+    %   The Sawyer class does a number of things
+    %   Mainly:
+    %       Generates sawyer model
+    %       Sets the limits and DH parameters
+    %       Links ply file models to the appropriate links
+    %   Using this, the sawyer class has been designed to perform the
+    %   manufacturing task related to our company but can be expanded to
+    %   other applications
+    %
+    %   Constructor inputs:
+    %       baseTransform -> location of the sawyer base, the part will be
+    %       generated at this location
+    %       name -> the name that will be given to the sawyer model
+    %
+    %
+    %   To accomplish these tasks it contains the following Methods:
+    %   SawyerVolume:
+    %           inputs:
+    %               None
+    %           Outputs:
+    %               volume -> matrix in the form:
+    %               [maxX, minX, maxY, minY, maxZ, minZ, totalVolume];
+    %                   MaxX - max reachable x position
+    %                   minX - min reachable x position
+    %                   MaxY - max reachable Y position
+    %                   minY - min reachable Y position
+    %                   MaxZ - max reachable z position
+    %                   minZ - min reachable z position
+    %                   totalVolume - working volume of the sawyer
+    %       This Method will calculate the working volume of the sawyer
+    %       based on the model of the sawyer itself. This is accomplished
+    %       by generating a point cloud of possible endefector positions
+    %       given 30 degree angle changes for each joint. From that the
+    %       volume is approximated by assuming the working volume as a
+    %       sphere with a smaller hemisphere cut off from the top and
+    %       bottom
+    %   ReturnHome:
+    %           inputs:
+    %               None
+    %           Outputs:
+    %               None
+    %       This simply brings the sawyer back to its home positon, that
+    %       is, where all joints are 0
+    %   PickUpPart:
+    %           inputs:
+    %               partMesh -> the object relating to the mesh of the part
+    %               that will be picked up
+    %               endPose -> Where the mesh will be moved to
+    %           Outputs:
+    %               newMesh -> updated mesh of the part that was moved
+    %       This method will locate the part it needs to pick up (in this
+    %       case by recieving the part object as an input) and then moving
+    %       the part to the provided join position
+    %   DropPart:
+    %           inputs:
+    %               partMesh -> the object relating to the mesh of the part
+    %               that will be dropped off
+    %               endPose -> Where the mesh will be moved to
+    %           Outputs:
+    %               newMesh -> updated mesh of the part that was moved
+    %       Given that the sawyer is already holding a part it will then
+    %       move that part to the designated drop zone (passed to the
+    %       method) and drop the part there
+    %   SetSteps:
+    %           inputs:
+    %               newStepCount -> The amount of steps that each of the
+    %               movements will work at
+    %           outputs:
+    %               none
+    %       This sets how many steps will be performed in order to move
+    %       from the current position to the desired position
+    %   CopyROSBag:
+    %           inputs:
+    %               bagFile -> location to the bag that the sawyer will
+    %               imitate
+    %           outputs:
+    %               none
+    %       Given a ros bag location as an input, the sawyer will then
+    %       perform the tasks outlined in the ROS bag.
+    
     
     properties
         limit0 
@@ -30,19 +110,26 @@ classdef Sawyer
             self.limit5 = self.limit4;
             self.limit6 = (540/2)*pi/180;
             
-            l1 = Link('d',0.317,'a',-0.081,'alpha',pi/2,'offset',0, 'qlim', [self.limit0, self.limit0]);
+            l1 = Link('d',0.317,'a',-0.081,'alpha',pi/2,'offset',0, ...
+            'qlim', [self.limit0, self.limit0], 'offset', pi);
 
-            l2 = Link('d',0.18,'a',0,'alpha',-pi/2,'offset',0, 'qlim', [-self.limit1, self.limit1]);
+            l2 = Link('d',0.18,'a',0,'alpha',-pi/2,'offset',0,...
+            'qlim', [-self.limit1, self.limit1], 'offset', pi/2);
 
-            l3 = Link('d',0.4,'a',0,'alpha',pi/2,'offset',0, 'qlim', [-self.limit2, self.limit2]);
+            l3 = Link('d',0.4,'a',0,'alpha',pi/2,'offset',0, ...
+            'qlim', [-self.limit2, self.limit2], 'offset', pi);
 
-            l4 = Link('d',0.1685,'a',0,'alpha',-pi/2,'offset',0, 'qlim', [-self.limit3, self.limit3]);
+            l4 = Link('d',0.1685,'a',0,'alpha',-pi/2,'offset',0,...
+            'qlim', [-self.limit3, self.limit3]);
 
-            l5 = Link('d',0.4,'a',0,'alpha',pi/2,'offset',0, 'qlim', [-self.limit4, self.limit4]);
+            l5 = Link('d',0.4,'a',0,'alpha',pi/2,'offset',0,...
+            'qlim', [-self.limit4, self.limit4], 'offset', pi);
 
-            l6 = Link('d',0.1366,'a',0,'alpha',-pi/2,'offset',0, 'qlim', [-self.limit5, self.limit5]);
+            l6 = Link('d',0.1366,'a',0,'alpha',-pi/2,'offset',0,...
+            'qlim', [-self.limit5, self.limit5]);
 
-            l7 = Link('d',0.133,'a',0,'alpha',0,'offset',0, 'qlim', [-self.limit6, self.limit6]);
+            l7 = Link('d',0.133,'a',0,'alpha',0,'offset',0,...
+            'qlim', [-self.limit6, self.limit6]);
             
             self.links = [l1 l2 l3 l4 l5 l6 l7];
             
@@ -52,7 +139,8 @@ classdef Sawyer
             self.model.plotopt3d = { 'noname', 'nowrist', 'notiles'};
 
             for linkIndex = 0:self.model.n
-               [ faceData, vertexData, plyData(linkIndex + 1)] = plyread(['j',num2str(linkIndex),'.ply'],'tri');
+               [ faceData, vertexData, plyData(linkIndex + 1)] = ...
+               plyread(['j',num2str(linkIndex),'.ply'],'tri');
                 self.model.faces{linkIndex + 1} = faceData;
                 self.model.points{linkIndex + 1} = vertexData;
 
@@ -73,7 +161,9 @@ classdef Sawyer
             handles = findobj('Tag', self.model.name);
             h = get(handles,'UserData'); 
             for i = 1:8
-                 h.link(i).Children.FaceVertexCData = [plyData(i).vertex.red, plyData(i).vertex.green, plyData(i).vertex.blue]/255 ;
+                 h.link(i).Children.FaceVertexCData = ...
+                 [plyData(i).vertex.red, plyData(i).vertex.green,...
+                 plyData(i).vertex.blue]/255 ;
                  h.link(i).Children.FaceColor = 'interp';
             end
 
@@ -83,7 +173,8 @@ classdef Sawyer
             [face,vertices,data] = plyread('base_v3.ply','tri');
 
             % Scale the colours to be 0-to-1 (they are originally 0-to-255
-            vertexColours = [data.vertex.red, data.vertex.green, data.vertex.blue] / 255;
+            vertexColours = [data.vertex.red, data.vertex.green, ...
+                data.vertex.blue] / 255;
 
             basePose = baseTransform;
 
@@ -92,7 +183,8 @@ classdef Sawyer
             newV = [basePose * [vertices, ones(baseVsize,1)]']';
 
             baseMesh = trisurf(face,newV(:,1),newV(:,2), newV(:,3) ...
-                ,'FaceVertexCData',vertexColours,'EdgeColor','interp','EdgeLighting','flat');
+                ,'FaceVertexCData',vertexColours,'EdgeColor','interp',...
+            'EdgeLighting','flat');
 
         end
             
@@ -262,7 +354,19 @@ classdef Sawyer
         end
         
         function CopyROSBag(self, bagFile)
+            bag = rosbag(bagFile);
+            filteredBag = select(bag,'Topic', '/robot/joint_states');
             
+            data = readMessages(filteredBag);
+            
+            for i = 1:length(data)
+                state = data{i};
+                jointStates = state.Position(2:8,1).';
+                jointStates(1, 4) = -1*jointStates(1, 4) ;
+                
+                self.model.animate(jointStates);
+                drawnow();
+            end
         end
         
     end    

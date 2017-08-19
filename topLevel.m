@@ -77,4 +77,13 @@ else
     
     
 end
+%% imitate rosBag
+sawyer1 = Sawyer(transl(0,0,0), 's');
+bag1Path = '2017-07-04-23-03-07.bag';
+
+sawyer1.CopyROSBag(bag1Path);
+
+
+
+
 

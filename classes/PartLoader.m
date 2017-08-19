@@ -1,6 +1,23 @@
 classdef PartLoader
-    %UNTITLED2 Summary of this class goes here
-    %   Detailed explanation goes here
+    %PartLoader Reads a ply file and generates a 3d model, one that
+    %can be moved
+    %   PartLoader takes a ply file as an input into its constructor and
+    %   displays it on screen. If no figure already exists then one will be
+    %   created. If a figure does exist then it will be added to that
+    %   figure.
+    %
+    %   Constructor Inputs:
+    %       fileLocation -> location of the ply file to be used as
+    %       reference to generate the mesh
+    %       position -> start location of the mesh
+    %
+    %   Along with that it allows for simple interaction:
+    %   MovePart:
+    %       Inputs:
+    %           movePos -> end transform of where you want the part moved
+    %           to
+    %   The Movepart method redraws the already generated mesh to the new
+    %   provided location
     
     properties
         mesh;
