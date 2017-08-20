@@ -84,6 +84,3 @@ bag1Path = '2017-07-04-23-03-07.bag';
 sawyer1.CopyROSBag(bag1Path);
 
 
-
-
-

@@ -1,7 +1,8 @@
-classdef Sawyer
-    %Sawyer Generates physical model of the sawyer and allows for
-    %manufacturing control
-    %   The Sawyer class does a number of things
+% ======================================================================
+%> @brief Sawyer Generates physical model of the sawyer and allows for
+%>         manufacturing control
+%
+%> %   The Sawyer class does a number of things
     %   Mainly:
     %       Generates sawyer model
     %       Sets the limits and DH parameters
@@ -86,27 +87,60 @@ classdef Sawyer
     %           Outputs:
     %               None
     %       This simply brings the sawyer back to its tucked positon.
-    
+% ======================================================================
+
+classdef Sawyer
     
     properties
+        %> The absolute limit of joint 0
         limit0 
+        %> The absolute limit of joint 1
         limit1 
+        %> The absolute limit of joint 2
         limit2 
+        %> The absolute limit of joint 3
         limit3 
+        %> The absolute limit of joint 4
         limit4
+        %> The absolute limit of joint 5
         limit5 
+        %> The absolute limit of joint 6
         limit6
         
+        %> The sawyer model itself
         model;
+        %> List of links and their parameters
         links;
+        %> The name given to the sawyer arm
         modelName;
         
+        %> The amount of steps that each of the animations will work at
+        %this can be changed later
         steps = 30;
+        
+        %> logger file
+        logger;
         
     end
     
     methods
-        function  self = Sawyer(baseTransform, name)
+    % ======================================================================
+    %> @brief Class constructor
+    %>
+    %> Builds the sawyer model itself and the stand that it will sit on.
+    %>This model will be lined up to fit with the given transform
+    %>
+    %> @param baseTransform where the sawyer is to sit
+    %> @param name the name of the sawyer arm
+    %>
+    %> @return instance of the Sawyer class.
+    % ======================================================================
+        function  self = Sawyer(baseTransform, name, logObject)
+            self.logger = logObject;
+            self.modelName = name;
+            
+            self.logger.mlog = {self.logger.DEBUG, 'Sawyer', ...
+                ['Sawyer Init ', name]};
             hold on;
             self.limit0 = (350/2)*pi/180;
             self.limit1 = self.limit0;
@@ -157,6 +191,9 @@ classdef Sawyer
             % Check if there is a robot with this name, otherwise plot one 
             if isempty(findobj('Tag', self.model.name))
                 self.model.base = baseTransform;
+                
+                self.logger.mlog = {self.logger.DEBUG, 'Sawyer', ...
+                [name, ' init pose: ', self.logger.MatrixToString(baseTransform)]};
                 tuckPose = [0 70 0 137 88.9 -156 0].* pi/180;
                 self.model.plot3d(tuckPose, 'notiles');
                 camlight
@@ -194,8 +231,24 @@ classdef Sawyer
             'EdgeLighting','flat');
 
         end
-            
+    % ======================================================================
+    %> @brief SawyerVolume generates a point cloud of possible endefector
+    %>positions. From this it calculates the working volume of the sawyer
+    %>itself and returns the results.
+    %>
+    %> @retval volume the volume of the sawyer workspace in the form :
+    %> [maxX, minX, maxY, minY, maxZ, minZ, totalVolume];
+    %>                   MaxX - max reachable x position
+    %>                   minX - min reachable x position
+    %>                   MaxY - max reachable Y position
+    %>                   minY - min reachable Y position
+    %>                   MaxZ - max reachable z position
+    %>                  minZ - min reachable z position
+    %>                   totalVolume - working volume of the sawyer
+    % ======================================================================     
         function volume = SawyerVolume(self)
+            self.logger.mlog = {self.logger.DEBUG, 'Sawyer.Volume', ...
+                'finding volume'};
             angleChange = 30*pi/180;
             totalSize = uint64((self.limit0.*2./angleChange) .* ...
             (self.limit1.*2./angleChange) .* (self.limit2.*2./angleChange) .*...
@@ -224,6 +277,11 @@ classdef Sawyer
                                         zPoints(1,currentPoint) = endTransform(3,4);
 
                                         currentPoint = currentPoint + 1;
+                                        
+%                                         self.logger.mlog = ...
+%                                         {self.logger.DEBUG, 'Sawyer.Volume', ...
+%                                         ['current end pose ', ...
+%                                         self.logger.MatrixToString(endTransform)]};
 
 
                                 end
@@ -284,18 +342,30 @@ classdef Sawyer
             smallSphereVol = (4/3)*smallSphere_r.^2;
 
             totalVolume = bigSphereVol - smallSphereVol
-
+            hold on;
             plot3(xPoints, yPoints, zPoints, '.');
 
             volume = [maxX, minX, maxY, minY, maxZ, minZ, totalVolume];
 
         end
-        
+    % ======================================================================
+    %> @brief ReturnHome returns the robot to a position where all the
+    %>joints have an angle of 0
+    %>
+    % ======================================================================   
         function ReturnHome(self)
             listOfAngles = jtraj(self.model.getpos, zeros(1,7), self.steps);
 
             for i = 1:length(listOfAngles)
                 angle = listOfAngles(i , 1:7);
+                
+                currentPose = self.model.fkine(angle);
+                
+                self.logger.mlog = {self.logger.DEBUG, 'Sawyer.ReturnHome', ...
+                                        ['current end pose ', ...
+                                        self.logger.MatrixToString...
+                                        (currentPose)]};
+                
                 self.model.animate(angle);
                 drawnow();
                 pause(0.01);
@@ -303,6 +373,16 @@ classdef Sawyer
             end 
         end
         
+    % ======================================================================
+    %> @brief PickUpPart picks up the part pertaining to the given part
+    %>mesh, this part will be then brought to the given position
+    %>
+    %> @param partMesh A PartLoader object containing the mesh that will be
+    %>transported
+    %> @param endPose the transform of the location that the part will be
+    %> brought to 
+    %> @retval newMesh returns the modified PartLoader object
+    % ======================================================================
         function newMesh = PickUpPart(self, partMesh, endPose)
            
             movePose = partMesh.pose * trotx(pi);
@@ -312,6 +392,13 @@ classdef Sawyer
 
             for i = 1:length(listOfAngles)
                 angle = listOfAngles(i , 1:7);
+                
+                currentPose = self.model.fkine(angle);
+                
+                self.logger.mlog = {self.logger.DEBUG, 'Sawyer.PickUpPart', ...
+                                        [self.modelName, ' current end pose ', ...
+                                        self.logger.MatrixToString(currentPose)]};
+                
                 self.model.animate(angle);
                 drawnow();
 
@@ -325,6 +412,10 @@ classdef Sawyer
                 self.model.animate(angle);
 
                 currentTransform = self.model.fkine(angle);
+                
+                self.logger.mlog = {self.logger.DEBUG, 'Sawyer.PickUpPart', ...
+                                        [self.modelName, ' current end pose ', ...
+                                        self.logger.MatrixToString(currentTransform)]};
 
                 partMesh.MovePart(currentTransform);
 
@@ -335,7 +426,16 @@ classdef Sawyer
             newMesh = partMesh;
             
         end
-        
+   % ======================================================================
+    %> @brief DropPart drops the part pertaining to the given part
+    %>mesh, this part will be brought to the given position
+    %>
+    %> @param partMesh A PartLoader object containing the mesh that will be
+    %>transported
+    %> @param endPose the transform of the location that the part will be
+    %> brought to 
+    %> @retval newMesh returns the modified PartLoader object
+    % ======================================================================  
         function newMesh = DropPart(self, partMesh, endPose)
             
             movePose = endPose * trotx(pi);
@@ -348,6 +448,10 @@ classdef Sawyer
                 self.model.animate(angle);
                 currentTransform = self.model.fkine(angle);
 
+                self.logger.mlog = {self.logger.DEBUG, 'Sawyer.PickUpPart', ...
+                [self.modelName, ' current end pose ', ...
+                self.logger.MatrixToString(currentTransform)]};
+            
                 partMesh.MovePart(currentTransform);
                 drawnow();
 
@@ -355,27 +459,47 @@ classdef Sawyer
             
             newMesh = partMesh;
         end
-        
+    % ======================================================================
+    %> @brief SetSteps Sets the amount of steps to take between 2
+    %>consecutive poses
+    %>
+    %> @param newStepCount The new step amount
+    % ======================================================================    
         function SetSteps(self, newStepCount)
             self.steps = newStepCount;
         end
-        
+    % ======================================================================
+    %> @brief CopyROSBag this method takes a rosbag location and imitates
+    %>the joint positions recorded within it
+    %>
+    %> @param bagFile location of the rosbag with the .bag suffix
+    %> @param step how fast to iterate through the bag (1 step will do each
+    %>individual pose, 2 will do every second etc)
+    % ======================================================================    
         function CopyROSBag(self, bagFile, step)
-            bag = rosbag(bagFile);
-            filteredBag = select(bag,'Topic', '/robot/joint_states');
-            
-            data = readMessages(filteredBag);
-            
-            for i = 1:step:length(data)
-                state = data{i};
-                jointStates = state.Position(2:8,1).';
-                jointStates(1, 4) = -1*jointStates(1, 4) ;
-                
-                self.model.animate(jointStates);
-                drawnow();
+            try
+                bag = rosbag(bagFile);
+                filteredBag = select(bag,'Topic', '/robot/joint_states');
+
+                data = readMessages(filteredBag);
+
+                for i = 1:step:length(data)
+                    state = data{i};
+                    jointStates = state.Position(2:8,1).';
+                    jointStates(1, 4) = -1*jointStates(1, 4) ;
+
+                    self.model.animate(jointStates);
+                    drawnow();
+                end
+            catch ERROR
+                disp("ERROR WITH EXECUTING ROS IMITATE");
+                ERROR
             end
         end
-        
+    % ======================================================================
+    %> @brief TuckArm Brings the arm to a tucked position
+    %>
+    % ======================================================================    
         function TuckArm(self)
             tuckPose = [0 70 0 137 88.9 -156 0].* pi/180;
             listOfAngles = jtraj(self.model.getpos, tuckPose , self.steps);
@@ -383,11 +507,21 @@ classdef Sawyer
             for i = 1:length(listOfAngles)
                 angle = listOfAngles(i , 1:7);
                 self.model.animate(angle);
+                
+                currentPose = self.model.fkine(angle);
+                
+                self.logger.mlog = {self.logger.DEBUG, 'Sawyer.TuckArm', ...
+                [self.modelName ' current end pose ', ...
+                self.logger.MatrixToString(currentPose)]};
+                
                 drawnow();
                 pause(0.01);
 
             end 
         end
+        
+        function endPose = EndEffectorLocation(self)
+            endPose = self.model.fkine(self.model.getpos);
+        end
     end    
 end
-

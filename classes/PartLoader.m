@@ -1,5 +1,8 @@
-classdef PartLoader
-    %PartLoader Reads a ply file and generates a 3d model, one that
+% ======================================================================
+%> @brief This will generate mesh given a plyfile, it will contain the mesh
+%>and allow movement of the mesh
+%
+%> %PartLoader Reads a ply file and generates a 3d model, one that
     %can be moved
     %   PartLoader takes a ply file as an input into its constructor and
     %   displays it on screen. If no figure already exists then one will be
@@ -18,16 +21,33 @@ classdef PartLoader
     %           to
     %   The Movepart method redraws the already generated mesh to the new
     %   provided location
+% ======================================================================
+classdef PartLoader
     
     properties
+        %> The mesh of the part
         mesh;
+        %> The amount of verticies
         count;
+        %> The verticies themselves 
         verts;
+        %> The current pose of the part given as 4x4 transform
         pose;
     end
     
     methods
-        
+    % ======================================================================
+    %> @brief Class constructor
+    %>
+    %> Given a ply file it will generate a 3d mesh of the ply file. It will
+    %> then pack it into this class allowing for easy movement of the mesh
+    %>
+    %> @param fileLocation location to the ply file that will be basis of
+    %> the mesh
+    %> @param position transform of the part
+    %>
+    %> @return instance of the PartLoader class.
+    % ======================================================================
         function self = PartLoader(fileLocation, position)
             [face,verticies,data] = plyread(fileLocation,'tri');
 
@@ -56,7 +76,11 @@ classdef PartLoader
             end
         
         end
-        
+    % ======================================================================
+    %> @brief MovePart moves the contained mesh to the new given transform
+    %> and redraws it
+    %> @param movePos the new transform of the part
+    % ======================================================================
         function MovePart(self, movePos)
             
             updatedPoints = [movePos * [self.verts,ones(self.count,1)]']';

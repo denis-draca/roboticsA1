@@ -22,7 +22,7 @@ function varargout = SawyerManufacturing(varargin)
 
 % Edit the above text to modify the response to help SawyerManufacturing
 
-% Last Modified by GUIDE v2.5 20-Aug-2017 13:25:10
+% Last Modified by GUIDE v2.5 20-Aug-2017 17:22:31
 
 % Begin initialization code - DO NOT EDIT
 
@@ -198,21 +198,27 @@ sawyer2 = get(handles.inS2, 'String');
 pcbPos = get(handles.inPCB, 'String');
 topPos = get(handles.inTop, 'String');
 bottomPos = get(handles.inBottom, 'String');
+dropPose = get(handles.inBin, 'String');
 
 loopCount = get(handles.inLoopCount, 'String');
+logName = get(handles.inLogName, 'String');
 
 if isempty(sawyer1)...
         || isempty(sawyer2) ...
         || isempty(pcbPos) ...
         || isempty(topPos) ...
         || isempty(bottomPos) ...
-        || isempty(loopCount)
+        || isempty(loopCount)...
+        || isempty(dropPose)...
+        || isempty(logName)
 
     disp('not all values have been provided, please do so')
 else
     cla(handles.axes1);
     axes(handles.axes1);
     set(handles.outMade, 'String', string(0));
+    
+    logger = log4matlab(logName);
     
     loopCount = uint16(str2double(loopCount));
     
@@ -222,17 +228,18 @@ else
     pcbPos = GenerateTransform(pcbPos);
     topPos = GenerateTransform(topPos);
     bottomPos = GenerateTransform(bottomPos);
+    dropPose = GenerateTransform(dropPose);
     
     
-    sawyer1 = Sawyer(sawyerPos_1, 'sawyer1');
-    sawyer2 = Sawyer(sawyerPos_2,'sawyer2');
+    sawyer1 = Sawyer(sawyerPos_1, 'sawyer1',logger);
+    sawyer2 = Sawyer(sawyerPos_2,'sawyer2',logger);
     
-    sawyer1_x = sawyerPos_1(1,4);
-    sawyer1_y = sawyerPos_1(2,4);
-    sawyer2_x = sawyerPos_2(1,4);
-    sawyer2_y = sawyerPos_2(2,4);
+    sawyer1_x = sawyer1.model.base(1,4);
+    sawyer1_y = sawyer1.model.base(2,4);
+    sawyer2_x = sawyer2.model.base(1,4);
+    sawyer2_y = sawyer2.model.base(2,4);
     
-    centre = transl((sawyer1_x+sawyer2_x)/2, (sawyer1_y + sawyer2_y), 0);
+    centre = transl((sawyer1_x+sawyer2_x)/2, (sawyer1_y + sawyer2_y)/2, 0);
     joinPos = centre*transl(0, 0.1, 0.5);
     
     pcbMesh = PartLoader('pcb.ply', pcbPos);
@@ -242,26 +249,32 @@ else
 
     worldMesh = PartLoader('world3.ply', centre);
 
-    dropPose = centre;
+    %dropPose = centre;
     chuteMesh = PartLoader('chute.ply', dropPose);
     completeMesh = PartLoader('complete.ply', dropPose);
     
     if Distance2p(sawyer1.model.base, topPos) < Distance2p(sawyer2.model.base, topPos)
         for i = 1:loopCount
-            topMesh = sawyer1.PickUpPart(topMesh, joinPos);
+            topMesh = sawyer1.PickUpPart(topMesh, joinPos); 
+            DisplayStatus(handles, sawyer1, sawyer2)   
+            
             pcbMesh = sawyer2.PickUpPart(pcbMesh, joinPos * ...
-            transl(0,0,0.01) * trotx(pi));
+                transl(0,0,0.01) * trotx(pi));
+            DisplayStatus(handles, sawyer1, sawyer2)
+            
 
             sawyer2.TuckArm;
-
+            DisplayStatus(handles, sawyer1, sawyer2)
+        
             bottomMesh = sawyer2.PickUpPart(bottomMesh, joinPos * trotx(pi));
-
+            DisplayStatus(handles, sawyer1, sawyer2)
             pcbMesh.MovePart(dropPose);
             topMesh.MovePart(dropPose);
             bottomMesh.MovePart(dropPose);
 
             completeMesh.MovePart(joinPos);
             completeMesh = sawyer1.DropPart(completeMesh, dropPose);
+            DisplayStatus(handles, sawyer1, sawyer2)
             
             pause(1);
             pcbMesh.MovePart(pcbPos);
@@ -270,7 +283,9 @@ else
             completeMesh.MovePart(dropPose);
             
             sawyer2.TuckArm;
+            DisplayStatus(handles, sawyer1, sawyer2)
             sawyer1.TuckArm;
+            DisplayStatus(handles, sawyer1, sawyer2)
             
             set(handles.outMade, 'String', string(i));
             
@@ -279,11 +294,12 @@ else
     else
         for i = 1:loopCount
             topMesh = sawyer2.PickUpPart(topMesh, joinPos);
+            DisplayStatus(handles, sawyer1, sawyer2)
             pcbMesh = sawyer1.PickUpPart(pcbMesh, joinPos * ...
             transl(0,0,0.01) * trotx(pi));
-
+            DisplayStatus(handles, sawyer1, sawyer2)
             sawyer1.TuckArm;
-
+            DisplayStatus(handles, sawyer1, sawyer2)
             bottomMesh = sawyer1.PickUpPart(bottomMesh, joinPos * trotx(pi));
 
             pcbMesh.MovePart(dropPose);
@@ -301,8 +317,9 @@ else
             completeMesh.MovePart(dropPose);
             
             sawyer2.TuckArm;
+            DisplayStatus(handles, sawyer1, sawyer2)
             sawyer1.TuckArm;
-            
+            DisplayStatus(handles, sawyer1, sawyer2)
             set(handles.outMade, 'String', string(i));
             
         end
@@ -401,7 +418,105 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 function transform = GenerateTransform(rawInput)
-splitValues = str2double(strsplit(rawInput,','));
+rawSplit = str2double(strsplit(rawInput,','));
+
+splitValues = zeros(1,6);
+for i = 1:6
+    try
+        if isnan(rawSplit(1,i))
+            splitValues(1,i) = 0;
+        else
+            splitValues(1,i) = rawSplit(1,i);
+        end      
+    catch
+        splitValues(1,i) = 0;
+    end
+end
 
 transform = transl(splitValues(1,1),splitValues(1,2),splitValues(1,3)) * ...
     rpy2tr(splitValues(1,4),splitValues(1,5),splitValues(1,6));
+
+
+
+function inLogName_Callback(hObject, eventdata, handles)
+% hObject    handle to inLogName (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of inLogName as text
+%        str2double(get(hObject,'String')) returns contents of inLogName as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function inLogName_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to inLogName (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in buFindVolume.
+function buFindVolume_Callback(hObject, eventdata, handles)
+% hObject    handle to buFindVolume (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+cla(handles.axes1);
+axes(handles.axes1);
+
+logName = get(handles.inLogName, 'String');
+
+logger = log4matlab(logName);
+
+sawyer1 = Sawyer(transl(0,0,0), 'sawyer1', logger);
+
+sawyerSpecs = sawyer1.SawyerVolume;
+
+radiusX = sawyerSpecs(1,1);
+radiusY = sawyerSpecs(1,3);
+radiusZ = (sawyerSpecs(1,5) - sawyerSpecs(1,6))/2;
+volume = sawyerSpecs(1,7);
+
+set(handles.outVolumeData, 'String', ["Radius along X ->", radiusX, ...
+    "Radius along Y ->", radiusY, "Radius along Z->", radiusZ, ...
+    "Total Volume ->", volume]);
+
+
+
+function inBin_Callback(hObject, eventdata, handles)
+% hObject    handle to inBin (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of inBin as text
+%        str2double(get(hObject,'String')) returns contents of inBin as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function inBin_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to inBin (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+function DisplayStatus(handles, sawyer1, sawyer2)
+
+sawyer1Transform = sawyer1.EndEffectorLocation;
+sawyer2Transform = sawyer2.EndEffectorLocation;
+
+sawyer1Transform = mat2str(sawyer1Transform);
+sawyer2Transform = mat2str(sawyer2Transform);
+
+set(handles.outLogInfo, 'String', ['Current End effector' , ...
+sawyer1.modelName, ' ', sawyer1Transform ...
+sawyer2.modelName, ' ', sawyer2Transform ...    
+]); 
