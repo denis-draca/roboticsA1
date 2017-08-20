@@ -34,7 +34,7 @@ chuteMesh = PartLoader('chute.ply', dropPose);
 completeMesh = PartLoader('complete.ply', dropPose);
 %% 
 sawyer1 = Sawyer(sawyer_1_pose, 'sawyer1');
-sawyer2 = Sawyer(sawyer_2_pose, 'sawyer2');
+%sawyer2 = Sawyer(sawyer_2_pose, 'sawyer2');
 %% reset part poses
 
 pcbMesh.MovePart(pcb_pos);

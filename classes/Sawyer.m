@@ -80,6 +80,12 @@ classdef Sawyer
     %               none
     %       Given a ros bag location as an input, the sawyer will then
     %       perform the tasks outlined in the ROS bag.
+    %       TuckArm:
+    %           inputs:
+    %               None
+    %           Outputs:
+    %               None
+    %       This simply brings the sawyer back to its tucked positon.
     
     
     properties
@@ -151,7 +157,8 @@ classdef Sawyer
             % Check if there is a robot with this name, otherwise plot one 
             if isempty(findobj('Tag', self.model.name))
                 self.model.base = baseTransform;
-                self.model.plot3d([0,0,0,0,0,0,0], 'notiles');
+                tuckPose = [0 70 0 137 88.9 -156 0].* pi/180;
+                self.model.plot3d(tuckPose, 'notiles');
                 camlight
             end
             view([0.5, 0.5 , 0.5]);
@@ -353,13 +360,13 @@ classdef Sawyer
             self.steps = newStepCount;
         end
         
-        function CopyROSBag(self, bagFile)
+        function CopyROSBag(self, bagFile, step)
             bag = rosbag(bagFile);
             filteredBag = select(bag,'Topic', '/robot/joint_states');
             
             data = readMessages(filteredBag);
             
-            for i = 1:length(data)
+            for i = 1:step:length(data)
                 state = data{i};
                 jointStates = state.Position(2:8,1).';
                 jointStates(1, 4) = -1*jointStates(1, 4) ;
@@ -369,6 +376,18 @@ classdef Sawyer
             end
         end
         
+        function TuckArm(self)
+            tuckPose = [0 70 0 137 88.9 -156 0].* pi/180;
+            listOfAngles = jtraj(self.model.getpos, tuckPose , self.steps);
+
+            for i = 1:length(listOfAngles)
+                angle = listOfAngles(i , 1:7);
+                self.model.animate(angle);
+                drawnow();
+                pause(0.01);
+
+            end 
+        end
     end    
 end
 
