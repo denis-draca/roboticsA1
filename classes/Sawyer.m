@@ -267,10 +267,8 @@ classdef Sawyer
                 for j1 = -self.limit1:angleChange:self.limit1
                     for j2 = -self.limit2:angleChange:self.limit2
                         for j3 = -self.limit3:angleChange:self.limit3
-                            for j4 = -self.limit4:angleChange:self.limit4
-                                for j5 = -self.limit5:angleChange:self.limit5
 
-                                        jointAngles = [j0,j1,j2,j3,j4,j5,0];
+                                        jointAngles = [j0,j1,j2,j3,0,0,0];
                                         endTransform = self.model.fkine(jointAngles);
                                         xPoints(1,currentPoint) = endTransform(1,4);
                                         yPoints(1,currentPoint) = endTransform(2,4);
@@ -284,8 +282,6 @@ classdef Sawyer
 %                                         self.logger.MatrixToString(endTransform)]};
 
 
-                                end
-                            end
                         end
                     end
                 end
@@ -385,6 +381,26 @@ classdef Sawyer
     % ======================================================================
         function newMesh = PickUpPart(self, partMesh, endPose)
            
+            waypoint = partMesh.pose * transl(0,0,0.2) * trotx(pi);
+            
+            listOfAngles = jtraj(self.model.getpos, ...
+            self.model.ikine(waypoint), self.steps);
+
+            for i = 1:length(listOfAngles)
+                angle = listOfAngles(i , 1:7);
+                
+                currentPose = self.model.fkine(angle);
+                
+                self.logger.mlog = {self.logger.DEBUG, 'Sawyer.PickUpPart', ...
+                                [self.modelName, ' current end pose ', ...
+                                self.logger.MatrixToString(currentPose)]};
+                
+                self.model.animate(angle);
+                drawnow();
+
+            end
+            
+            
             movePose = partMesh.pose * trotx(pi);
 
             listOfAngles = jtraj(self.model.getpos, ...

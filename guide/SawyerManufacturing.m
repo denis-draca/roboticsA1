@@ -355,20 +355,24 @@ function buROS_Callback(hObject, eventdata, handles)
 % hObject    handle to buROS (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-bagLocation = get(handles.inROS, 'String');
 animationRate = get(handles.inRate, 'String');
+ROSLogger = log4matlab('rosLogger.log');
 
-if isempty(bagLocation) ...
-        || isempty(animationRate)
-    disp('no bag location or animation rate given, please provide both');
+if isempty(animationRate)
+    disp('no animation rate given');
 else
-    cla(handles.axes1);
-    axes(handles.axes1);
-    
-    animationRate = uint16(str2double(animationRate));
-    
-    sawyer1 = Sawyer(transl(0,0,0), 's');
-    sawyer1.CopyROSBag(bagLocation, animationRate);
+    [bagName, bagLocation] = uigetfile('*.bag','Select the ROS Bag file')
+    if bagName ~= 0
+        cla(handles.axes1);
+        axes(handles.axes1);
+
+        animationRate = uint16(str2double(animationRate));
+
+        sawyer1 = Sawyer(transl(0,0,0), 's', ROSLogger);
+        sawyer1.CopyROSBag([bagLocation,bagName], animationRate);
+    else
+        disp('no bag file selected');
+    end
 end
 
 
@@ -468,7 +472,7 @@ function buFindVolume_Callback(hObject, eventdata, handles)
 cla(handles.axes1);
 axes(handles.axes1);
 
-logName = get(handles.inLogName, 'String');
+logName = 'volumeLogger.log';
 
 logger = log4matlab(logName);
 
@@ -476,8 +480,8 @@ sawyer1 = Sawyer(transl(0,0,0), 'sawyer1', logger);
 
 sawyerSpecs = sawyer1.SawyerVolume;
 
-radiusX = sawyerSpecs(1,1);
-radiusY = sawyerSpecs(1,3);
+radiusX = (sawyerSpecs(1,1) - sawyerSpecs(1,2))/2;
+radiusY = (sawyerSpecs(1,3) - sawyerSpecs(1,4))/2;
 radiusZ = (sawyerSpecs(1,5) - sawyerSpecs(1,6))/2;
 volume = sawyerSpecs(1,7);
 
@@ -513,8 +517,8 @@ function DisplayStatus(handles, sawyer1, sawyer2)
 sawyer1Transform = sawyer1.EndEffectorLocation;
 sawyer2Transform = sawyer2.EndEffectorLocation;
 
-sawyer1Transform = mat2str(sawyer1Transform);
-sawyer2Transform = mat2str(sawyer2Transform);
+sawyer1Transform = mat2str(sawyer1Transform,3);
+sawyer2Transform = mat2str(sawyer2Transform,3);
 
 set(handles.outLogInfo, 'String', ['Current End effector' , ...
 sawyer1.modelName, ' ', sawyer1Transform ...
