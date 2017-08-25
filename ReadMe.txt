@@ -11,6 +11,7 @@ NOTES:
 		/loading_meshs/parts
 		/loading_meshs/sawyer_ply3
 		/loading_meshs/world
+		/logger
 	All other files are testing
 
 To Run assignment:

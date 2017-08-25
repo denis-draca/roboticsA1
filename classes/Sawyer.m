@@ -193,7 +193,8 @@ classdef Sawyer
                 self.model.base = baseTransform;
                 
                 self.logger.mlog = {self.logger.DEBUG, 'Sawyer', ...
-                [name, ' init pose: ', self.logger.MatrixToString(baseTransform)]};
+                [name, ' init pose: ', ....
+                self.logger.MatrixToString(baseTransform)]};
                 tuckPose = [0 70 0 137 88.9 -156 0].* pi/180;
                 self.model.plot3d(tuckPose, 'notiles');
                 camlight
@@ -268,20 +269,13 @@ classdef Sawyer
                     for j2 = -self.limit2:angleChange:self.limit2
                         for j3 = -self.limit3:angleChange:self.limit3
 
-                                        jointAngles = [j0,j1,j2,j3,0,0,0];
-                                        endTransform = self.model.fkine(jointAngles);
-                                        xPoints(1,currentPoint) = endTransform(1,4);
-                                        yPoints(1,currentPoint) = endTransform(2,4);
-                                        zPoints(1,currentPoint) = endTransform(3,4);
+                            jointAngles = [j0,j1,j2,j3,0,0,0];
+                            endTransform = self.model.fkine(jointAngles);
+                            xPoints(1,currentPoint) = endTransform(1,4);
+                            yPoints(1,currentPoint) = endTransform(2,4);
+                            zPoints(1,currentPoint) = endTransform(3,4);
 
-                                        currentPoint = currentPoint + 1;
-                                        
-%                                         self.logger.mlog = ...
-%                                         {self.logger.DEBUG, 'Sawyer.Volume', ...
-%                                         ['current end pose ', ...
-%                                         self.logger.MatrixToString(endTransform)]};
-
-
+                            currentPoint = currentPoint + 1;
                         end
                     end
                 end
@@ -412,8 +406,8 @@ classdef Sawyer
                 currentPose = self.model.fkine(angle);
                 
                 self.logger.mlog = {self.logger.DEBUG, 'Sawyer.PickUpPart', ...
-                                        [self.modelName, ' current end pose ', ...
-                                        self.logger.MatrixToString(currentPose)]};
+                                [self.modelName, ' current end pose ', ...
+                                self.logger.MatrixToString(currentPose)]};
                 
                 self.model.animate(angle);
                 drawnow();
@@ -430,8 +424,8 @@ classdef Sawyer
                 currentTransform = self.model.fkine(angle);
                 
                 self.logger.mlog = {self.logger.DEBUG, 'Sawyer.PickUpPart', ...
-                                        [self.modelName, ' current end pose ', ...
-                                        self.logger.MatrixToString(currentTransform)]};
+                                [self.modelName, ' current end pose ', ...
+                                self.logger.MatrixToString(currentTransform)]};
 
                 partMesh.MovePart(currentTransform);
 
